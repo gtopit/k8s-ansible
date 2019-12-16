@@ -1,0 +1,56 @@
+- name: close firewalld
+  service: name=firewalld state=stopped enabled=false
+
+#- name: close selinux
+#  shell: |
+#    setenforce 0
+#    sed -i "s/SELINUX=\S*/SELINUX=disabled/" /etc/selinux/config
+- name: close selinux
+  lineinfile:
+    path: /etc/selinux/config
+    regexp: '^SELINUX='
+    line: SELINUX=disabled
+
+- name: close swap
+  shell: |
+    swapoff -a
+    sed -i "s/.*swap.*/#&/" /etc/fstab
+
+- name: effective immediately
+  shell: setenforce 0
+  ignore_errors: True
+
+- name: copy time zone
+  copy: src=/usr/share/zoneinfo/Asia/Shanghai dest=/etc/localtime
+
+- name: install ntpdate
+  yum: name=ntpdate state=present
+
+- name: sync system datetime
+  shell: ntpdate time.windows.com
+
+- name: create tmp_dir
+  file: path={{ tmp_dir }} state=directory mode='0755'
+
+# 需要创建一个和执行playbook命令的主机一样的目录
+# 然后将需要rpm安装的文件解压到此目录
+- name: create software_dir
+  file: path={{ software_dir }} state=directory
+
+- name: add ip and hostname to hosts.tmp
+  template: src=hosts.j2 dest={{ tmp_dir }}/hosts.tmp
+
+# 由于我所使用的私有云在每次重启后都会重置/etc/hosts文件，因此每次操作前先去掉加上的属性，让其可写入。
+- name: remove a attribute from /etc/hosts
+  shell: chattr -a /etc/hosts
+
+- name: append hosts.tmp to /etc/hosts
+  blockinfile:
+    block: "{{ lookup('file', '{{ tmp_dir }}/hosts.tmp') }}"
+    dest: /etc/hosts
+    backup: yes
+
+# 由于我所使用的私有云在每次重启后都会重置/etc/hosts文件，因此加上一个属性不让其更改
+- name: add a attribute to /etc/hosts
+  shell: chattr +a /etc/hosts
+

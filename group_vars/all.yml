@@ -1,0 +1,38 @@
+# 临时目录
+tmp_dir: "/tmp/ansible"
+# 二进制解压缩包位置
+software_dir: "/usr/local/software/binary_pkg"
+# etcd 安装位置
+etcd_work_dir: "/opt/etcd"
+# k8s 安装位置
+k8s_work_dir: "/opt/k8s"
+
+# 证书有效，默认10年
+validity_period: "87600h"
+
+# 集群网络
+service_cidr: '10.0.0.0/24'
+cluster_dns: '10.0.0.2' # 与roles/addons/files/coredns.yaml中IP一致
+pod_cidr: '10.244.0.0/16' # 与roles/addons/files/kube-flannel.yaml中网段一致
+service_nodeport_range: '30000-32767'
+cluster_domain: 'cluster.local'
+
+# 高可用
+vip: 192.168.233.250
+nic: ens33
+
+cert_hosts:
+  etcd:
+    - 192.168.233.111
+    - 192.168.233.112
+    - 192.168.233.113
+  # 包含所有LB、VIP、本地主机、service_cidr的第一个IP和k8s master ip（如果是高可用，可以不需要）
+  k8s:
+    - 10.0.0.1
+    - 127.0.0.1
+    - 192.168.233.30
+    - 192.168.233.40
+    - 192.168.233.114
+    - 192.168.233.115
+    - 192.168.233.250
+

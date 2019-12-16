@@ -1,0 +1,37 @@
+- name: prepare cfssl
+  unarchive: src={{ software_dir }}/cfssl.tar.gz dest=/usr/bin mode=u+x
+
+- name: create etcd tmp dir
+  file: path={{ tmp_dir }}/etcd state=directory
+
+- name: prepare etcd  certificate
+  template: src=etcd/{{ item }} dest={{ tmp_dir }}/etcd/{{ item.split('.')[:-1]|join('.') }}
+  loop:
+    - ca-config.json.j2
+    - ca-csr.json.j2
+    - etcd-csr.json.j2
+
+- name: generate etcd certificate
+  shell: |
+    cfssl gencert -initca {{ tmp_dir }}/etcd/ca-csr.json | cfssljson -bare {{ tmp_dir }}/etcd/ca
+    cfssl gencert -ca={{ tmp_dir }}/etcd/ca.pem -ca-key={{ tmp_dir }}/etcd/ca-key.pem -config={{ tmp_dir }}/etcd/ca-config.json -profile=www {{ tmp_dir }}/etcd/etcd-csr.json | cfssljson -bare {{ tmp_dir }}/etcd/etcd
+
+- name: create k8s tmp dir
+  file: path={{ tmp_dir }}/k8s state=directory
+
+- name: prepare k8s certificate
+  template: src=k8s/{{ item }} dest={{ tmp_dir }}/k8s/{{ item.split('.')[:-1]|join('.') }}
+  loop:
+    - ca-config.json.j2
+    - ca-csr.json.j2
+    - apiserver-csr.json.j2
+    - kube-proxy-csr.json.j2
+    - admin-csr.json.j2
+
+- name: generate k8s certificate
+  shell: |
+    cfssl gencert -initca {{ tmp_dir }}/k8s/ca-csr.json | cfssljson -bare {{ tmp_dir }}/k8s/ca
+    cfssl gencert -ca={{ tmp_dir }}/k8s/ca.pem -ca-key={{ tmp_dir }}/k8s/ca-key.pem -config={{ tmp_dir }}/k8s/ca-config.json -profile=kubernetes {{ tmp_dir }}/k8s/apiserver-csr.json | cfssljson -bare {{ tmp_dir }}/k8s/apiserver
+    cfssl gencert -ca={{ tmp_dir }}/k8s/ca.pem -ca-key={{ tmp_dir }}/k8s/ca-key.pem -config={{ tmp_dir }}/k8s/ca-config.json -profile=kubernetes {{ tmp_dir }}/k8s/kube-proxy-csr.json | cfssljson -bare {{ tmp_dir }}/k8s/kube-proxy
+    cfssl gencert -ca={{ tmp_dir }}/k8s/ca.pem -ca-key={{ tmp_dir }}/k8s/ca-key.pem -config={{ tmp_dir }}/k8s/ca-config.json -profile=kubernetes {{ tmp_dir }}/k8s/admin-csr.json | cfssljson -bare {{ tmp_dir }}/k8s/admin
+

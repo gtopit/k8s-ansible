@@ -1,0 +1,62 @@
+- hosts: k8s_extend_node
+  gather_facts: False
+  tasks:
+  - import_role:
+      name: common
+    tags: 
+      - common
+      - node
+
+- hosts: all
+  gather_facts: False
+  tasks:
+  - import_role:
+      name: k8s-extend
+    tags: 
+      - k8s-extend
+      - node
+
+- hosts: k8s_extend_node
+  gather_facts: False
+  tasks:
+  - import_role:
+      name: docker
+    tags: 
+      - docker
+      - node
+
+- hosts: k8s_extend_node
+  gather_facts: False
+  tasks:
+  - import_role:
+      name: k8s-node
+    tags: 
+      - k8s-node
+      - node
+    
+- hosts: k8s_master[0]
+  gather_facts: False
+  tasks:
+    # 允许Node加入集群
+  - name: allow node join the k8s cluster
+    shell: |
+      kubectl certificate approve $(kubectl get csr | awk 'NR == 1 {next} {print $1}')
+    tags:
+      - certificate
+      - node
+  ignore_errors: True
+
+- hosts: k8s_master[0]
+  gather_facts: False
+  tasks:
+    # 查看集群节点
+  - name: get k8s cluster node
+    shell: |
+      sleep 2 && kubectl get node
+    tags:
+      - get-node
+      - node
+    register: node_info
+  - debug:
+      msg: "{{ node_info.stdout_lines }}"
+      

@@ -1,0 +1,89 @@
+- name: unpack k8s tar
+  unarchive: src={{ item }} dest={{ software_dir }}
+  with_fileglob:
+    - "{{ software_dir }}/kubernetes-server-linux-amd64-*.tar.gz"
+
+- name: create k8s work dir
+  file: path={{ k8s_work_dir }}/{{ item }} state=directory
+  loop:
+    - bin
+    - pki
+    - conf
+    - logs
+
+- name: create etcd work dir
+  file: path={{ etcd_work_dir }}/{{ item }} state=directory
+  loop:
+    - pki
+
+- name: issue etcd certificate
+  copy: src={{ tmp_dir }}/etcd/{{ item }} dest={{ etcd_work_dir }}/pki
+  loop:
+    - ca.pem
+    - etcd.pem
+    - etcd-key.pem
+
+- name: copy k8s binary file to specified dir
+  copy: src={{ software_dir }}/kubernetes/server/bin/{{ item }} dest={{ k8s_work_dir }}/bin mode=u+x
+  loop:
+    - kube-apiserver
+    - kube-controller-manager
+    - kube-scheduler
+
+- name: copy kubectl to /usr/bin
+  copy: src={{ software_dir }}/kubernetes/server/bin/kubectl dest=/usr/bin mode=u+x
+
+- name: issue k8s certificate
+  copy: src={{ tmp_dir }}/k8s/{{ item }} dest={{ k8s_work_dir }}/pki
+  loop:
+    - ca.pem
+    - ca-key.pem
+    - apiserver.pem
+    - apiserver-key.pem
+    - admin.pem
+    - admin-key.pem
+
+- name: issue token file
+  copy: src=token.csv dest={{ k8s_work_dir }}/conf
+
+- name: issue .env file
+  template: src={{ item }} dest={{ k8s_work_dir }}/conf/{{ item.split('.')[:-1]|join('.') }}
+  loop:
+    - kube-apiserver.env.j2
+    - kube-controller-manager.env.j2
+    - kube-scheduler.env.j2
+
+- name: issue .service file
+  template: src={{ item }} dest=/usr/lib/systemd/system/{{ item.split('.')[:-1]|join('.') }}
+  loop:
+    - kube-apiserver.service.j2
+    - kube-controller-manager.service.j2
+    - kube-scheduler.service.j2
+
+- name: start k8s master
+  systemd: name={{ item }} daemon_reload=yes state=restarted enabled=yes
+  loop:
+    - kube-apiserver
+    - kube-scheduler
+    - kube-controller-manager
+
+# 查看集群状态
+- name: check k8s master status
+  shell: sleep 3 && kubectl get cs
+  register: k8s_status
+- debug: 
+    msg: "{{ k8s_status.stdout_lines }}"
+
+# 拷贝RBAC文件
+- name: copy rbac file
+  copy: src={{ item }} dest={{ tmp_dir }}
+  loop:
+    - kubelet-bootstrap-rbac.yaml
+    - apiserver-to-kubelet-rbac.yaml
+  
+# 授权APIServer访问Kubelet与授权kubelet bootstrap
+- name: authorized access
+  ignore_errors: yes
+  shell: |
+    kubectl apply -f {{ tmp_dir }}/apiserver-to-kubelet-rbac.yaml && \
+    kubectl apply -f {{ tmp_dir }}/kubelet-bootstrap-rbac.yaml

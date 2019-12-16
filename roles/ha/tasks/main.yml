@@ -1,0 +1,46 @@
+# 将文件发送到远程主机software_dir目录
+- name: issue nginx,keepalived etc. rpm to specified hosts 
+  copy: src={{ item }} dest={{ software_dir }}
+  with_fileglob:
+    - "{{ software_dir }}/nginx-*.rpm"
+    - "{{ software_dir }}/net-snmp-*.rpm"
+    - "{{ software_dir }}/keepalived-*.rpm"
+  
+- name: install nginx
+  yum:
+    # 1.首先在执行playbook命令的主机查找是否存在符合匹配规则的rpm文件
+    # 2.然后在远程主机相同路径下查找1匹配到的rpm文件
+    # 3.若存在，则安装。
+    # 4.因此在执行playbook命令的主机和远程主机都必须存在路径和文件名相同的文件，yum 命令特性 
+    name: "{{ query('fileglob', '{{ software_dir }}/nginx-*.rpm') }}"
+    state: present
+
+- name: configure /etc/nginx/nginx.conf
+  blockinfile:
+    # 注意：nginx.conf.tmp文件在muitl-deploy.yml文件的流程中已生成
+    block: "{{ lookup('file', '{{ tmp_dir }}/nginx.conf.tmp') }}"
+    dest: /etc/nginx/nginx.conf
+    backup: yes
+
+- name: install keepalived dependents
+  yum: 
+    name: "{{ query('fileglob', '{{ software_dir }}/net-snmp-*.rpm') }}"
+    state: present
+
+- name: install keepalived
+  yum:
+    name: "{{ query('fileglob', '{{ software_dir }}/keepalived-*.rpm') }}"
+    state: present
+
+- name: configure /etc/keepalived/keepalived.conf
+  template: src=keepalived.conf.j2 dest=/etc/keepalived/keepalived.conf
+
+- name: keepalived check_nginx.sh
+  copy: src=check_nginx.sh dest=/etc/keepalived/ mode=u+x
+
+- name: start nginx
+  systemd: name=nginx state=restarted enabled=yes
+
+- name: start keepalived
+  systemd: name=keepalived state=restarted enabled=yes
+

@@ -1,0 +1,30 @@
+[Unit]
+Description=Etcd Server
+After=network.target
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+EnvironmentFile={{ etcd_work_dir }}/conf/etcd.env
+ExecStart={{ etcd_work_dir }}/bin/etcd \
+--name=${ETCD_NAME} \
+--data-dir=${ETCD_DATA_DIR} \
+--listen-peer-urls=${ETCD_LISTEN_PEER_URLS} \
+--listen-client-urls=${ETCD_LISTEN_CLIENT_URLS} \
+--advertise-client-urls=${ETCD_ADVERTISE_CLIENT_URLS} \
+--initial-advertise-peer-urls=${ETCD_INITIAL_ADVERTISE_PEER_URLS} \
+--initial-cluster=${ETCD_INITIAL_CLUSTER} \
+--initial-cluster-token=${ETCD_INITIAL_CLUSTER_TOKEN} \
+--initial-cluster-state=${ETCD_INITIAL_CLUSTER_STATE} \
+--cert-file={{ etcd_work_dir }}/pki/etcd.pem \
+--key-file={{ etcd_work_dir }}/pki/etcd-key.pem \
+--peer-cert-file={{ etcd_work_dir }}/pki/etcd.pem \
+--peer-key-file={{ etcd_work_dir }}/pki/etcd-key.pem \
+--trusted-ca-file={{ etcd_work_dir }}/pki/ca.pem \
+--peer-trusted-ca-file={{ etcd_work_dir }}/pki/ca.pem
+Restart=on-failure
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

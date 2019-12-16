@@ -1,0 +1,23 @@
+{
+    "CN": "etcd",
+    "hosts": [
+    {% for ip in cert_hosts.etcd %}
+      {% if loop.last %}
+        "{{ ip }}"
+      {% else %}
+        "{{ ip }}",
+      {% endif %}
+    {% endfor %}
+    ],
+    "key": {
+        "algo": "rsa",
+        "size": 2048
+    },
+    "names": [
+        {
+            "C": "CN",
+            "L": "Guangdong",
+            "ST": "Guangzhou"
+        }
+    ]
+}

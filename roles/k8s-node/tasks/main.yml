@@ -1,0 +1,76 @@
+# 创建k8s node节点工作路径
+- name: create k8s work dir
+  file: path={{ k8s_work_dir }}/{{ item }} state=directory
+  loop:
+    - bin
+    - pki
+    - conf
+    - logs
+
+# 创建cni网络插件目录
+- name: create cni dir
+  file: path={{ item }} state=directory
+  loop:
+    - /opt/cni/bin
+    - /etc/cni/net.d
+
+# 解压并分发cni插件二进制包
+- name: unpack issue 
+  unarchive: src={{ item }} dest=/opt/cni/bin
+  with_fileglob:
+    - "{{ software_dir }}/cni-plugins-linux-*.tgz"
+  
+# 分发 k8s node 二进制文件
+- name: issue k8s binary file
+  copy: src={{ software_dir }}/kubernetes/server/bin/{{ item }} dest={{ k8s_work_dir }}/bin mode=u+x
+  loop:
+    - kubelet
+    - kube-proxy
+
+# 配置systemctl管理并分发
+- name: issue .service file
+  template: src={{ item }} dest={{ k8s_work_dir }}/conf/{{ item.split('.')[:-1]|join('.') }}
+  loop: 
+    - kubelet.env.j2
+    - kube-proxy.env.j2
+    - kubelet-config.yml.j2
+    - kube-proxy.kubeconfig.j2
+    - kube-proxy-config.yml.j2
+    - bootstrap.kubeconfig.j2
+
+# 分发kubelet kube-proxy所需要的密钥
+- name: issue .pem
+  copy: src={{ tmp_dir }}/k8s/{{ item }} dest={{ k8s_work_dir }}/pki
+  loop: 
+    - ca.pem
+    - kube-proxy.pem
+    - kube-proxy-key.pem
+    
+# 分发service文件
+- name: issue .service file
+  template: src={{ item }} dest=/usr/lib/systemd/system/{{ item.split('.')[:-1]|join('.') }}
+  with_items:
+    - kubelet.service.j2
+    - kube-proxy.service.j2
+
+# 启动k8s node组件
+- name: start k8s node component
+  systemd: name={{ item }} state=restarted enabled=yes daemon_reload=yes
+  with_items:
+    - kubelet
+    - kube-proxy
+
+# 分发预准备镜像
+- name: issue image
+  copy: src={{ software_dir }}/image.tar.gz dest={{ tmp_dir }}
+
+# 导入镜像
+- name: import image
+  shell: cd {{ tmp_dir }} && \
+         tar zxf image.tar.gz && \
+         for image in $(ls *.tar);do docker load < $image;done
+   
+    
+
+
+

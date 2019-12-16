@@ -1,0 +1,19 @@
+
+
+- name: add ip and hostname to hosts.tmp
+  template: src=hosts.j2 dest={{ tmp_dir }}/hosts.tmp
+
+# 由于我所使用的私有云在每次重启后都会重置/etc/hosts文件，因此每次操作前先去掉加上的属性，让其可写入。
+- name: remove a attribute from /etc/hosts
+  shell: chattr -a /etc/hosts
+
+- name: append hosts.tmp to /etc/hosts
+  blockinfile:
+    block: "{{ lookup('file', '{{ tmp_dir }}/hosts.tmp') }}"
+    dest: /etc/hosts
+    backup: yes
+
+# 由于我所使用的私有云在每次重启后都会重置/etc/hosts文件，因此加上一个属性不让其更改
+- name: add a attribute to /etc/hosts
+  shell: chattr +a /etc/hosts
+  

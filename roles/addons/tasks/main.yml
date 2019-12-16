@@ -1,0 +1,54 @@
+# 允许Node加入集群
+- name: allow node join the k8s cluster
+  shell: |
+    kubectl certificate approve $(kubectl get csr | awk 'NR == 1 {next} {print $1}')
+  ignore_errors: True
+
+# 拷贝YAML文件到Master
+- name: copy yaml to master
+  copy: src={{ item }} dest={{ tmp_dir }}
+  with_fileglob:
+    - "*.yaml"
+
+# 部署Flannel,Dashboard,CoreDNS,Ingress
+- name: deploy Flannel,Dashboard,CoreDNS,Ingress
+  ignore_errors: yes
+  shell: |
+         cd {{ tmp_dir }}
+         for yaml in $(ls *.yaml);do kubectl apply -f $yaml;done
+
+# 替换Dashboard证书
+- name: replace Dashboard certificate
+  shell: |
+         kubectl delete secret kubernetes-dashboard-certs -n kubernetes-dashboard |true
+         kubectl create secret generic kubernetes-dashboard-certs \
+         --from-file={{ k8s_work_dir }}/pki/apiserver-key.pem --from-file={{ k8s_work_dir }}/pki/apiserver.pem -n kubernetes-dashboard
+         kubectl apply -f {{ tmp_dir }}/kubernetes-dashboard.yaml
+
+# 查看Pod状态
+- name: check pod status
+  shell: kubectl get all --all-namespaces
+  register: getall
+- debug: var=getall.stdout_lines
+
+# 创建Dashboard管理员令牌
+- name: create Dashboard admin token
+  ignore_errors: True 
+  shell: |
+         kubectl create serviceaccount dashboard-admin -n kubernetes-dashboard
+         kubectl create clusterrolebinding dashboard-admin --clusterrole=cluster-admin --serviceaccount=kubernetes-dashboard:dashboard-admin
+
+# 获取Dashboard管理员令牌 
+- name: access Dashboard admin token
+  ignore_errors: True
+  shell: |
+         web='https://{{ groups['k8s_master'][0] }}:30001'
+         token=$(kubectl describe secrets -n kubernetes-dashboard \
+         $(kubectl get secret -n kubernetes-dashboard | awk '/dashboard-admin/{print $1}') |awk '/^token/{print $2}')
+         echo "access adress--->$web"
+         echo "token--->$token" 
+  register: ui
+
+# Kubernetes Dashboard登录信息
+- name: Kubernetes Dashboard login information
+  debug: var=ui.stdout_lines

@@ -1,0 +1,71 @@
+- name: create ectd work dir
+  file: dest={{ etcd_work_dir }}/{{ item }} state=directory
+  loop:
+    - bin
+    - conf
+    - pki
+
+- name: unpacks etcd tar
+  unarchive: src={{ item }} dest={{ tmp_dir }}
+  # match file with the pattern
+  with_fileglob:
+    - "{{ software_dir }}/etcd-v*.tar.gz"
+
+# 如果etcd已经存在并处于运行状态，则将其暂停
+- name: stop etcd
+  shell: systemctl stop etcd
+  ignore_errors: True
+
+- name: copy etcd binary file to specified dir
+  shell: /usr/bin/cp {{ tmp_dir }}/etcd-v*/{etcd,etcdctl} {{ etcd_work_dir }}/bin
+  ignore_errors: True
+
+- name: issue certificate
+  copy: src={{ tmp_dir }}/etcd/{{ item }} dest={{ etcd_work_dir }}/pki
+  loop:
+    - ca.pem
+    - ca-key.pem
+    - etcd.pem
+    - etcd-key.pem
+
+- name: issue .service file
+  template: 
+    src: etcd.service.j2
+    dest: /usr/lib/systemd/system/etcd.service
+
+- name: issue etcd.env file
+  template: src=etcd.env.j2 dest={{ etcd_work_dir }}/conf/etcd.env
+
+- name: clear etcd datadir if exist
+  file: 
+    path: /var/lib/etcd/default.etcd
+    state: absent
+
+- name: start etcd
+  systemd: 
+    name: etcd
+    daemon_reload: yes
+    state: restarted
+    enabled: yes
+
+- name: issue etcd-health.sh script
+  template: src=etcd-health.sh.j2 dest={{ tmp_dir }}/etcd-health.sh mode=u+x
+
+- hosts: k8s_master[0]
+  gather_facts: False
+  tasks:
+    # 查看集群节点
+  - name: get k8s cluster node
+    shell: |
+      sleep 2 && kubectl get node
+    register: node_info
+    tags:
+      - get-node
+      - node
+  - debug:
+      msg: "{{ node_info.stdout_lines }}"
+    tags:
+      - get-node
+      - node
+
+

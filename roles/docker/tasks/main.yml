@@ -1,0 +1,32 @@
+# 将文件发送到远程主机software_dir目录
+- name: issue docker rpm to specified hosts
+  copy: src={{ item }} dest={{ software_dir }}
+  with_fileglob:
+    - "{{ software_dir }}/containerd.io-*.rpm"
+    - "{{ software_dir }}/docker-ce-*.rpm"
+    - "{{ software_dir }}/container-selinux-2.*.rpm"
+
+- name: install docker container-selinux
+  yum: 
+    name: "{{ query('fileglob', '{{software_dir}}/container-selinux-2.*.rpm') }}"
+    state: present
+
+- name: install docker containerd.io
+  yum: 
+    name: "{{ query('fileglob', '{{software_dir}}/containerd.io-*.rpm') }}"
+    state: present
+
+- name: install docker docker-ce
+  yum:
+    name: "{{ query('fileglob', '{{ software_dir }}/docker-ce-*.rpm') }}"
+    state: present
+
+- name: create /etc/docker dir
+  file: path=/etc/docker state=directory mode='0755' 
+
+- name: configure /etc/docker/daemon.json
+  copy: src=daemon.json dest=/etc/docker
+  
+- name: start docker
+  systemd: name=docker state=restarted enabled=yes
+

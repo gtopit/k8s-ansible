@@ -1,0 +1,29 @@
+[etcd]
+192.168.233.111 etcd_hostname=etcd01
+192.168.233.112 etcd_hostname=etcd02
+192.168.233.113 etcd_hostname=etcd03
+
+[k8s_master]
+192.168.233.114 node_hostname=master01-k8s
+192.168.233.115 node_hostname=master02-k8s
+
+[k8s_node]
+192.168.233.117 node_hostname=node01-k8s
+192.168.233.118 node_hostname=node02-k8s
+
+[k8s:children]
+k8s_master
+k8s_node
+
+[lb_master]
+192.168.233.30 lb_hostname=lb1-k8s
+
+[lb_backup]
+192.168.233.40 lb_hostname=lb2-k8s
+
+[lb:children]
+lb_master
+lb_backup
+
+[k8s_extend_node]
+192.168.233.119 node_hostname=node03-k8s

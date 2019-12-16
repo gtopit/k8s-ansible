@@ -1,0 +1,86 @@
+---
+- hosts: all
+  gather_facts: False
+  tasks:
+  - import_role:
+      name: common
+    tags: 
+      - common
+      - multi
+      - standalone
+
+- hosts: localhost
+  gather_facts: False
+  tasks:
+  - import_role:
+      name: pki
+    tags: 
+      - pki
+      - multi
+      - standalone
+  # 注意：动态生成nginx.conf.tmp一定要在ha流程之前
+  - name: dynamic generate nginx.conf.tmp
+    template: src=nginx.conf.j2 dest={{ tmp_dir }}/nginx.conf.tmp
+    tags: 
+      - nginx-conf
+      - multi
+
+- hosts: etcd
+  gather_facts: False
+  tasks: 
+  - import_role:
+      name: etcd
+    tags: 
+      - etcd
+      - multi
+      - standalone
+
+- hosts: lb
+  gather_facts: False
+  tasks:
+  - import_role:
+      name: ha
+    tags: 
+      - ha
+      - multi
+
+- hosts: k8s
+  gather_facts: False
+  tasks:
+  - import_role:
+      name: docker
+    tags: 
+      - docker
+      - multi
+      - standalone
+
+- hosts: k8s_master
+  gather_facts: False
+  tasks:
+  - import_role:
+      name: k8s-master
+    tags: 
+      - k8s-master
+      - multi
+      - standalone
+
+- hosts: k8s
+  gather_facts: False
+  tasks:
+  - import_role:
+      name: k8s-node
+    tags: 
+      - k8s-node
+      - multi
+      - standalone
+
+# 部署插件
+- hosts: k8s_master[0]
+  gather_facts: False
+  tasks:
+  - import_role:
+      name: addons
+    tags: 
+      - addons
+      - multi
+      - standalone

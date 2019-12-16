@@ -1,0 +1,18 @@
+{
+  "signing": {
+    "default": {
+      "expiry": "{{ validity_period }}"
+    },
+    "profiles": {
+      "kubernetes": {
+         "expiry": "{{ validity_period }}",
+         "usages": [
+            "signing",
+            "key encipherment",
+            "server auth",
+            "client auth"
+        ]
+      }
+    }
+  }
+}
