@@ -51,21 +51,5 @@
 - name: issue etcd-health.sh script
   template: src=etcd-health.sh.j2 dest={{ tmp_dir }}/etcd-health.sh mode=u+x
 
-- hosts: k8s_master[0]
-  gather_facts: False
-  tasks:
-    # 查看集群节点
-  - name: get k8s cluster node
-    shell: |
-      sleep 2 && kubectl get node
-    register: node_info
-    tags:
-      - get-node
-      - node
-  - debug:
-      msg: "{{ node_info.stdout_lines }}"
-    tags:
-      - get-node
-      - node
 
 
